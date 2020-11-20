@@ -1,7 +1,7 @@
 ---
 title: "Participatory budgeting algorithm"
 author: "Adrien Fabre"
-date: "19/11/2020"
+date: "2020"
 output:
   pdf_document: default
   html_document: default
@@ -26,8 +26,8 @@ package("adagio")
 * $K$ categories (of spending)
 * for each category $k \in K$, $n_k$ possible levels of spending: $y_k^1 < ... < y_k^{n_k}$. We denote $Y_k = \{y_k^i: i \in [1; n_k]\}$, and $Y = Y_1 \times ... \times Y_K$.
 * $N$ voters: give their preferred apportionments given different budget levels: $b_1 < ... < b_m$, and the related satisfaction levels $u^i_1, ..., u^i_m$
-* for budget $b_j$, choice of voter $i$ is characterized by: $\sideset{_j}{}v^i = ( \sideset{_j}{}v_1^i, ..., \sideset{_j}{}v_K^i )$, with $\sideset{_j}{}v_k^i \in Y_k$ under the budget constraint $\sum_k \sideset{_j}{}v_k^i \leq b_j$. Let us denote by $\sideset{_j}{}V$ the voting profile for budget level $b_j$: $\sideset{_j}{}V = (\sideset{_j}{}v^i)_{i:1..N}$
-* (*Unused information*)* For budget $b_j$, voter $i$ would obtain satisfaction $u^i = U^i(\sideset{_j}{}v^i)$ from their favorite apportionment $\sideset{_j}{}v^i$
+* for budget $b_j$, choice of voter $i$ is characterized by: $_{j}v^i = ( \mathbin{_{j}v_1^i}, ..., \mathbin{_{j}v_K^i} )$, with $\mathbin{_{j}v_k^i} \in Y_k$ under the budget constraint $\sum_k \mathbin{_{j}v_k^i} \leq b_j$. Let us denote by $_{j}V$ the voting profile for budget level $b_j$: $_{j}V = (\mathbin{_{j}v^i})_{i:1..N}$
+* (*Unused information*)* For budget $b_j$, voter $i$ would obtain satisfaction $u^i = U^i(_{j}v^i)$ from their favorite apportionment $_{j}v^i$
 * Actual budget level: $B$
 * informal objective: find an apportionment of budget $B$ that best represents the choices of voters.
 
@@ -35,30 +35,30 @@ package("adagio")
 ### Exact solution
 **Basic case** $\exists j: b_j = B$
 
-For each category $k$, define the average spending proposal $\overline s_k$ as $\overline s_k = \frac{1}{N} \sum_{i=1}^N  \sideset{_j}{}v_k^i$.
+For each category $k$, define the average spending proposal $\overline s_k$ as $\overline s_k = \frac{1}{N} \sum_{i=1}^N  \mathbin{_{j}v_k^i}$.
 In this section, we assume that for all categories $k$, $\overline s_k \in Y_k$. If this is not the case, we need to approximate each $\overline s_k$ by a certain $s_k^* \in Y_k$ (see *Approximate solution* below).
 
 The apportionment chosen is $S = (\overline s_1,...,\overline s_K)$. 
 It trivially respects the budget constraint. 
-It will be useful to see $S$ as a function of the voting profile $\sideset{_j}{}V$, i.e. $S=:\overline S(\sideset{_j}{}V)$.
+It will be useful to see $S$ as a function of the voting profile $_{j}V$, i.e. $S=:\overline S(_{j}V)$.
 
 **Interior case** $\exists \underline{j}, \overline{j} = \underline{j} + 1: b_{\underline{j}} < B < b_{\overline{j}}$ <!-- $\exists \underline{j}: \underline{B} = b_{\underline{j}} < B < b_{\underline{j}+1}=\overline{B}$ -->
 
 Take $\lambda \in (0;1)$ such as $B = \lambda b_{\underline{j}} + (1-\lambda) b_{\overline{j}}$, i.e. $\lambda = \frac{b_{\overline{j}} - B}{\overline B - b_{\underline{j}}}$. 
 
-Define $S$ as $S(B,\lambda, \sideset{_{\underline j}}{}V, \sideset{_{\overline j}}{}V) = \lambda \overline S(\sideset{_{\underline j}}{}V) + (1-\lambda) \overline S(\sideset{_{\overline j}}{}V)$
+Define $S$ as $S(B,\lambda, _{\underline j}V, _{\overline j}V) = \lambda \overline S(_{\underline j}V) + (1-\lambda) \overline S(_{\overline j}V)$
 
 **Corner case** $B \notin [b_1;b_m]$
 
 <!-- Define $B^*$ as $B^* = b_1$ if $B < b_1$ and $B^* = b_m$ if $B > b_m$. -->
-Define $S$ as $S = \frac{B}{b_1} \overline S(\sideset{_{1}}{}V)$ if $B < b_1$ and $S = \frac{B}{b_m} \overline S(\sideset{_{m}}{}V)$ if $B > b_m$.
+Define $S$ as $S = \frac{B}{b_1} \overline S(_{1}V)$ if $B < b_1$ and $S = \frac{B}{b_m} \overline S(_{m}V)$ if $B > b_m$.
 
 ### Approximate solution
 Now, we have a set of target spendings $S = (s_1,...,s_K)$ that respects the budget constraint but not necessarily the possible levels of spendings, and we want to find an apportionment $S^* = (s_1^*,...,s_K^*) \in Y$ that fits into the possible levels of spendings, while still respecting the budget constraint. We will do so using a Knapsack algorithm.
 
 For each $k$, define $s^-_k = \max_{Y_k} \{y: y \leq s_k\}$ and $s^+_k = \min_{Y_k} \{y: y \geq s_k\}$. Further define $\widetilde B = B - \sum_k s^-_k$.
 
-The Knapsack problem (which is actually a subset sum problem) consists in finding the set $K^* \subset [1;K]$ that maximizes $\sum_{k\in K^*} s_k - s^-_k$ under the constraint $\sum_{k\in K^*} s^+_k - s^-_k \leq \widetilde B$.
+The Knapsack problem consists in finding the set $K^* \subset [1;K]$ that maximizes $\sum_{k\in K^*} s_k - s^-_k$ under the constraint $\sum_{k\in K^*} s^+_k - s^-_k \leq \widetilde B$.
 
 NB: other maximization programs can be used here, notably some that make use of the categories prioritized by the voters (which can be defined using other budget levels or using the satisfaction levels).
 
@@ -141,7 +141,6 @@ Y <- list(c(0:4), c(0:3), c(0:5), c(0:1), c(0:1))
 B <- 8
 b <- c(4, 8)
 N <- 7
-# V1 <- V2 <- matrix(NA, nrow = N, ncol = K)
 V1 <- matrix(c(0, 0, 2, 1, 1,
                2, 2, 0, 0, 0,
                0, 0, 4, 0, 0,
@@ -164,7 +163,6 @@ proportional_solution(B, b, Y, V)
 proportional_solution(10, b, Y, V) 
 proportional_solution(2, b, Y, V) 
 proportional_solution(7, b, Y, V)
-proportional_solution(5, b, Y, V)
 ```
 
 
