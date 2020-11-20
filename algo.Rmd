@@ -68,29 +68,7 @@ NB: other maximization programs can be used here, notably some that make use of 
 * doesn't use information on preferences over budget levels other than the closest from the actual budget
 
 ### Implementation
-```{r}
-K <- 5
-Y <- list(c(0:4), c(0:3), c(0:5), c(0:1), c(0:1))
-B <- 8
-b <- c(4, 8)
-N <- 7
-# V1 <- V2 <- matrix(NA, nrow = N, ncol = K)
-V1 <- matrix(c(0, 0, 2, 1, 1,
-               2, 2, 0, 0, 0,
-               0, 0, 4, 0, 0,
-               0, 2, 0, 1, 1,
-               2, 0, 0, 1, 1,
-               2, 2, 0, 0, 0,
-               4, 0, 0, 0, 0), byrow=T, nrow = N, ncol = K)
-V2 <- matrix(c(4, 0, 2, 1, 1,
-               2, 2, 4, 0, 0,
-               0, 2, 4, 1, 1,
-               0, 2, 4, 1, 1,
-               2, 2, 2, 1, 1,
-               2, 2, 2, 1, 1,
-               4, 2, 0, 1, 1), byrow=T, nrow = N, ncol = K)
-V <- list(V1, V2)
-
+```{r include=FALSE}
 # TODO: étendre aux budgets par projets
 proportional_solution <- function(B, b, Y, V, continuous = FALSE) {
   check_data_consistency(B, b, Y, V, continuous)
@@ -155,7 +133,32 @@ fits_possible_levels_spendings <- function(s, Y, continuous = FALSE) {
   else { for (j in seq_along(s)) if (!(s[j] %in% Y[[j]])) fits <- FALSE }
   return(fits)
 }
+```
 
+```{r echo=TRUE}
+K <- 5
+Y <- list(c(0:4), c(0:3), c(0:5), c(0:1), c(0:1))
+B <- 8
+b <- c(4, 8)
+N <- 7
+# V1 <- V2 <- matrix(NA, nrow = N, ncol = K)
+V1 <- matrix(c(0, 0, 2, 1, 1,
+               2, 2, 0, 0, 0,
+               0, 0, 4, 0, 0,
+               0, 2, 0, 1, 1,
+               2, 0, 0, 1, 1,
+               2, 2, 0, 0, 0,
+               4, 0, 0, 0, 0), byrow=T, nrow = N, ncol = K)
+V2 <- matrix(c(4, 0, 2, 1, 1,
+               2, 2, 4, 0, 0,
+               0, 2, 4, 1, 1,
+               0, 2, 4, 1, 1,
+               2, 2, 2, 1, 1,
+               2, 2, 2, 1, 1,
+               4, 2, 0, 1, 1), byrow=T, nrow = N, ncol = K)
+V <- list(V1, V2)
+
+# The function definitions are hidden
 proportional_solution(B, b, Y, V, continuous = TRUE)
 proportional_solution(B, b, Y, V)
 proportional_solution(10, b, Y, V) 
