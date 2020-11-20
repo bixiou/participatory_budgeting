@@ -1,0 +1,167 @@
+---
+title: "Participatory budgeting algorithm"
+author: "Adrien Fabre"
+date: "19/11/2020"
+output:
+  pdf_document: default
+  html_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+Sys.setenv("PATH" = paste(Sys.getenv("PATH"), "C:/Users/afabre/Documents/", sep = .Platform$path.sep), 'R_USER' = 'C:/Users/afabre/Documents/') 
+.libPaths( c( .libPaths(), "C:/Users/afabre/R-40~1.3/library", "\\nash/mtec-home/afabre/My Documents/R/R-4.0.3/library", "C:/Program Files/R/R-4.0.2/library") )
+package <- function(p) { 
+  if (!is.element(p, installed.packages()[,1])) {
+    install.packages(p); 
+  }
+  library(p, character.only = TRUE)
+} # loads packages with automatical install if needed
+package("tidyverse")
+package("adagio")
+```
+
+## Set-up
+
+* $K$ categories (of spending)
+* for each category $k \in K$, $n_k$ possible levels of spending: $y_k^1 < ... < y_k^{n_k}$. We denote $Y_k = \{y_k^i: i \in [1; n_k]\}$, and $Y = Y_1 \times ... \times Y_K$.
+* $N$ voters: give their preferred apportionments given different budget levels: $b_1 < ... < b_m$, and the related satisfaction levels $u^i_1, ..., u^i_m$
+* for budget $b_j$, choice of voter $i$ is characterized by: $\sideset{_j}{}v^i = ( \sideset{_j}{}v_1^i, ..., \sideset{_j}{}v_K^i )$, with $\sideset{_j}{}v_k^i \in Y_k$ under the budget constraint $\sum_k \sideset{_j}{}v_k^i \leq b_j$. Let us denote by $\sideset{_j}{}V$ the voting profile for budget level $b_j$: $\sideset{_j}{}V = (\sideset{_j}{}v^i)_{i:1..N}$
+* (*Unused information*)* For budget $b_j$, voter $i$ would obtain satisfaction $u^i = U^i(\sideset{_j}{}v^i)$ from their favorite apportionment $\sideset{_j}{}v^i$
+* Actual budget level: $B$
+* informal objective: find an apportionment of budget $B$ that best represents the choices of voters.
+
+## Proportional resolution method
+### Exact solution
+**Basic case** $\exists j: b_j = B$
+
+For each category $k$, define the average spending proposal $\overline s_k$ as $\overline s_k = \frac{1}{N} \sum_{i=1}^N  \sideset{_j}{}v_k^i$.
+In this section, we assume that for all categories $k$, $\overline s_k \in Y_k$. If this is not the case, we need to approximate each $\overline s_k$ by a certain $s_k^* \in Y_k$ (see *Approximate solution* below).
+
+The apportionment chosen is $S = (\overline s_1,...,\overline s_K)$. 
+It trivially respects the budget constraint. 
+It will be useful to see $S$ as a function of the voting profile $\sideset{_j}{}V$, i.e. $S=:\overline S(\sideset{_j}{}V)$.
+
+**Interior case** $\exists \underline{j}, \overline{j} = \underline{j} + 1: b_{\underline{j}} < B < b_{\overline{j}}$ <!-- $\exists \underline{j}: \underline{B} = b_{\underline{j}} < B < b_{\underline{j}+1}=\overline{B}$ -->
+
+Take $\lambda \in (0;1)$ such as $B = \lambda b_{\underline{j}} + (1-\lambda) b_{\overline{j}}$, i.e. $\lambda = \frac{b_{\overline{j}} - B}{\overline B - b_{\underline{j}}}$. 
+
+Define $S$ as $S(B,\lambda, \sideset{_{\underline j}}{}V, \sideset{_{\overline j}}{}V) = \lambda \overline S(\sideset{_{\underline j}}{}V) + (1-\lambda) \overline S(\sideset{_{\overline j}}{}V)$
+
+**Corner case** $B \notin [b_1;b_m]$
+
+<!-- Define $B^*$ as $B^* = b_1$ if $B < b_1$ and $B^* = b_m$ if $B > b_m$. -->
+Define $S$ as $S = \frac{B}{b_1} \overline S(\sideset{_{1}}{}V)$ if $B < b_1$ and $S = \frac{B}{b_m} \overline S(\sideset{_{m}}{}V)$ if $B > b_m$.
+
+### Approximate solution
+Now, we have a set of target spendings $S = (s_1,...,s_K)$ that respects the budget constraint but not necessarily the possible levels of spendings, and we want to find an apportionment $S^* = (s_1^*,...,s_K^*) \in Y$ that fits into the possible levels of spendings, while still respecting the budget constraint. We will do so using a Knapsack algorithm.
+
+For each $k$, define $s^-_k = \max_{Y_k} \{y: y \leq s_k\}$ and $s^+_k = \min_{Y_k} \{y: y \geq s_k\}$. Further define $\widetilde B = B - \sum_k s^-_k$.
+
+The Knapsack problem (which is actually a subset sum problem) consists in finding the set $K^* \subset [1;K]$ that maximizes $\sum_{k\in K^*} s_k - s^-_k$ under the constraint $\sum_{k\in K^*} s^+_k - s^-_k \leq \widetilde B$.
+
+NB: other maximization programs can be used here, notably some that make use of the categories prioritized by the voters (which can be defined using other budget levels or using the satisfaction levels).
+
+
+### Shortcomings
+* doesn't use satisfaction, i.e. doesn't try to spot which spending trigger largest jump in satisfaction, nor to weigh more the least satisfied
+* doesn't use information on preferences over budget levels other than the closest from the actual budget
+
+### Implementation
+```{r}
+K <- 5
+Y <- list(c(0:4), c(0:3), c(0:5), c(0:1), c(0:1))
+B <- 8
+b <- c(4, 8)
+N <- 7
+# V1 <- V2 <- matrix(NA, nrow = N, ncol = K)
+V1 <- matrix(c(0, 0, 2, 1, 1,
+               2, 2, 0, 0, 0,
+               0, 0, 4, 0, 0,
+               0, 2, 0, 1, 1,
+               2, 0, 0, 1, 1,
+               2, 2, 0, 0, 0,
+               4, 0, 0, 0, 0), byrow=T, nrow = N, ncol = K)
+V2 <- matrix(c(4, 0, 2, 1, 1,
+               2, 2, 4, 0, 0,
+               0, 2, 4, 1, 1,
+               0, 2, 4, 1, 1,
+               2, 2, 2, 1, 1,
+               2, 2, 2, 1, 1,
+               4, 2, 0, 1, 1), byrow=T, nrow = N, ncol = K)
+V <- list(V1, V2)
+
+# TODO: étendre aux budgets par projets
+proportional_solution <- function(B, b, Y, V, continuous = FALSE) {
+  check_data_consistency(B, b, Y, V, continuous)
+  S <- exact_solution(B, b, V)
+  if (continuous) S_star <- S
+  else S_star <- approximate_solution(B, Y, S)
+  # print(paste("Used budget:", sum(S_star)))
+  if (sum(S_star) != B) warning(paste("Used budget:", sum(S_star), "\n"))
+  return(S_star)
+}
+
+check_data_consistency <- function(B, b, Y, V, continuous = FALSE) {
+  if (any(b != sort(b))) warning("b not sorted\n")
+  if (length(unique(b))!=length(b)) warning("duplicates in b\n")
+  if (length(b)!=length(V)) warning("V and b of different sizes\n")
+  N <- nrow(V[[1]])
+  for (j in seq_along(V)) {
+    if (!(nrow(V[[j]])==N)) warning("number of voters non constant among budget levels\n")
+    if (!(ncol(V[[j]])==length(Y))) warning("wrong number of categories in voting profile\n")
+    if (any(sort(unique(Y[[j]]))!=Y[[j]])) warning(paste("possible levels of spending not strictly increasing for j=", j, "\n"))
+    for (i in 1:N) { 
+      if (!(fits_possible_levels_spendings(V[[j]][i,], Y, continuous))) warning(paste("impossible levels of spendings for j,i=", j, i, "\n"))
+      if (sum(V[[j]][i,]) > b[j]) warning(paste("budget constraint violated for j,i=", j, i, "\n")) }
+  }
+}
+
+exact_solution <- function(B, b, V) {
+  if (B %in% b) return(colMeans(V[[which(b == B)]]))
+  else if (B < min(b)) return(colMeans(V[[1]])*B/min(b))
+  else if (B > max(b)) return(colMeans(V[[-1]])*B/max(b))
+  else {
+    j_ <- 0
+    while (b[j_+1] < B) j_ <- j_ + 1
+    lambda <- (b[j_+1] - B)/(b[j_+1] - b[j_])
+    if (lambda > 1 | lambda < 0) warning("lambda not in (0,1)\n")
+    return(lambda*colMeans(V[[j_]]) + (1-lambda)*colMeans(V[[j_+1]]))
+  }
+}
+
+approximate_solution <- function(B, Y, S) {
+  if (fits_possible_levels_spendings(S, Y)) return(S)
+  else {
+    S_plus <- S_minus <- S
+    for (j in 1:length(Y)) {
+      n_j <- sum(Y[[j]] <= S[j])
+      S_minus[j] <- Y[[j]][n_j]
+      S_plus[j] <- Y[[j]][min(n_j + 1, length(Y[[j]]))] }
+    B_tilde <- B - sum(S_minus)
+    if (B_tilde < 0) warning("B_tilde < 0\n")
+    if (B_tilde != round(B_tilde)) warning("B_tilde not integer\n")
+    result <- knapsack(w = S_plus - S_minus, p = S - S_minus, cap = round(B_tilde))
+    # TODO: check how knapsack behave for draws (it seems it favors smallest indices)
+    S_star <- S_minus
+    for (j in result$indices) S_star[j] <- S_plus[j]
+    return(S_star)
+  }
+}
+
+fits_possible_levels_spendings <- function(s, Y, continuous = FALSE) {
+  fits <- TRUE
+  if (continuous) { for (j in seq_along(s)) if (s[j] < min(Y[[j]]) | s[j] > max(Y[[j]])) fits <- FALSE }
+  else { for (j in seq_along(s)) if (!(s[j] %in% Y[[j]])) fits <- FALSE }
+  return(fits)
+}
+
+proportional_solution(B, b, Y, V, continuous = TRUE)
+proportional_solution(B, b, Y, V)
+proportional_solution(10, b, Y, V) 
+proportional_solution(2, b, Y, V) 
+proportional_solution(7, b, Y, V)
+proportional_solution(5, b, Y, V)
+```
+
+
