@@ -95,17 +95,21 @@ check_data_consistency <- function(B, b, Y, V, continuous = FALSE) {
   }
 }
 
-exact_solution <- function(B, b, V) {
-  if (B %in% b) return(colMeans(V[[which(b == B)]]))
-  else if (B < min(b)) return(colMeans(V[[1]])*B/min(b))
-  else if (B > max(b)) return(colMeans(V[[-1]])*B/max(b))
+exact_solution <- function(B, b, V, return_j_lambda = FALSE) {
+  lambda <- 1
+  if (B %in% b)  j_ <- which(b == B)
+  else if (B < min(b)) j_ <- 1
+  else if (B > max(b)) j_ <- length(b)
   else {
     j_ <- 0
     while (b[j_+1] < B) j_ <- j_ + 1
     lambda <- (b[j_+1] - B)/(b[j_+1] - b[j_])
     if (lambda > 1 | lambda < 0) warning("lambda not in (0,1)\n")
-    return(lambda*colMeans(V[[j_]]) + (1-lambda)*colMeans(V[[j_+1]]))
   }
+  if (return_j_lambda) return(c(j_, lambda))
+  else { 
+    if (lambda==1) return(colMeans(V[[j_]])*B/b[j_])
+    else return(lambda*colMeans(V[[j_]]) + (1-lambda)*colMeans(V[[j_+1]])) }
 }
 
 approximate_solution <- function(B, Y, S) {
@@ -165,4 +169,61 @@ proportional_solution(2, b, Y, V)
 proportional_solution(7, b, Y, V)
 ```
 
+## Highest approval resolution method
+In this method, we select each option $(k, l)$ sequentially ordered by approval rate, until the budget is over. Approval $\mathbin{_{j}a^k_l}$ of an option $(k, l)$ for a round $j$ is defined by $\mathbin{_{j}a^k_l}=\#\{i:\mathbin{_{j}v^k_i} \geq y^k_l\}$. 
 
+Formally, we start by choosing the appropriate round $j$ in a similar procedure as before, and the method is akin to finding the set of options $\Sigma \subset \{(k,l):k \in [1;K],l\in [1;n_k]\}$ that maximizes $\sum_{(k,l)\in \Sigma} \mathbin{_{j}a^k_l}$.
+```{r include=FALSE}
+insort <- function(sorted_options, approval, category, value, cost, level) {
+  option <- list(c(approval, category, value, cost, level)) # NB: level unused, we may drop it
+  n <- length(sorted_options)
+  if (n==0) return(option)
+  else {
+    i <- 0
+    while (i < n && sorted_options[[i+1]][1] >= approval) i <- i+1
+    if (i==n) return(c(sorted_options[1:n], option))
+    else if (i==0) return(c(option, sorted_options[1:n]))
+    else return(c(sorted_options[1:i], option, sorted_options[(i+1):n]))
+  }
+}
+
+approval_solution <- function(B, b, Y, V) {
+  # TODO: continuous = T
+  check_data_consistency(B, b, Y, V, continuous = FALSE)
+  j_lambda <- exact_solution(B, b, V, return_j_lambda = TRUE)
+  j_ <- j_lambda[1]
+  lambda <- j_lambda[2] # TODO: use it, i.e. use more information to define v
+  v <- V[[j_]]
+  P <- Y
+  sorted_options <- list()
+  n <- 0
+  for (j in seq_along(Y)) for (l in seq_along(Y[[j]])) {
+    n <- n + 1
+    approval <- sum(v[,j] >= Y[[j]][l])
+    P[[j]][l] <- approval
+    cost <- ifelse(l==1, Y[[j]][l], Y[[j]][l] - Y[[j]][l-1])
+    sorted_options <- insort(sorted_options, approval, j, Y[[j]][l], cost, l) }
+  S_minus <- array(NA, length(Y))
+  # for (j in seq_along(Y)) S_minus[j] <- Y[[j]][1]
+  remaining_B <- B
+  i <- 1
+  while (i <= n && remaining_B > 0) if (remaining_B >= sorted_options[[i]][4]) {
+    remaining_B <- remaining_B - sorted_options[[i]][4]
+    S_minus[sorted_options[[i]][2]] <- sorted_options[[i]][3]
+    i <- i + 1 
+    # TODO: compute all possible ex aequo instead of one arbitrary from them, use correlations to select the best
+    # e.g. if some votes 1 for category k but many vote 2, it makes sense to penalize s*_k=1 and advantage s*_k=2
+  } else { i <- i + 1 }
+  S_star <- S_minus # TODO: complete S_star with remaining budget
+  if (sum(S_star) != B) warning(paste("Used budget:", sum(S_star), "\n"))
+  return(S_star)
+}
+```
+
+```{r echo=TRUE}
+# The function definitions are hidden
+approval_solution(B, b, Y, V)
+approval_solution(10, b, Y, V) 
+approval_solution(2, b, Y, V) 
+approval_solution(7, b, Y, V)
+```
