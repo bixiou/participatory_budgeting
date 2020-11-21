@@ -70,17 +70,17 @@ NB: other maximization programs can be used here, notably some that make use of 
 ### Implementation
 ```{r include=FALSE}
 # TODO: étendre aux budgets par projets
-proportional_solution <- function(B, b, Y, V, continuous = FALSE) {
-  check_data_consistency(B, b, Y, V, continuous)
+proportional_solution <- function(B, b, Y, V, continuous = FALSE, check_y_possible = TRUE, knapsack = "relative") {
+  check_data_consistency(B, b, Y, V, continuous, check_y_possible)
   S <- exact_solution(B, b, V)
   if (continuous) S_star <- S
-  else S_star <- approximate_solution(B, Y, S)
+  else S_star <- approximate_solution(B, Y, S, knapsack)
   # print(paste("Used budget:", sum(S_star)))
   if (sum(S_star) != B) warning(paste("Used budget:", sum(S_star), "\n"))
   return(S_star)
 }
 
-check_data_consistency <- function(B, b, Y, V, continuous = FALSE) {
+check_data_consistency <- function(B, b, Y, V, continuous = FALSE, check_y_possible = TRUE) {
   if (any(b != sort(b))) warning("b not sorted\n")
   if (length(unique(b))!=length(b)) warning("duplicates in b\n")
   if (length(b)!=length(V)) warning("V and b of different sizes\n")
@@ -90,7 +90,7 @@ check_data_consistency <- function(B, b, Y, V, continuous = FALSE) {
     if (!(ncol(V[[j]])==length(Y))) warning("wrong number of categories in voting profile\n")
     if (any(sort(unique(Y[[j]]))!=Y[[j]])) warning(paste("possible levels of spending not strictly increasing for j=", j, "\n"))
     for (i in 1:N) { 
-      if (!(fits_possible_levels_spendings(V[[j]][i,], Y, continuous))) warning(paste("impossible levels of spendings for j,i=", j, i, "\n"))
+      if (check_y_possible & !(fits_possible_levels_spendings(V[[j]][i,], Y, continuous))) warning(paste("impossible levels of spendings for j,i=", j, i, "\n"))
       if (sum(V[[j]][i,]) > b[j]) warning(paste("budget constraint violated for j,i=", j, i, "\n")) }
   }
 }
@@ -112,7 +112,7 @@ exact_solution <- function(B, b, V, return_j_lambda = FALSE) {
     else return(lambda*colMeans(V[[j_]]) + (1-lambda)*colMeans(V[[j_+1]])) }
 }
 
-approximate_solution <- function(B, Y, S) {
+approximate_solution <- function(B, Y, S, knapsack = 'relative') {
   if (fits_possible_levels_spendings(S, Y)) return(S)
   else {
     S_plus <- S_minus <- S
@@ -123,7 +123,8 @@ approximate_solution <- function(B, Y, S) {
     B_tilde <- B - sum(S_minus)
     if (B_tilde < 0) warning("B_tilde < 0\n")
     if (B_tilde != round(B_tilde)) warning("B_tilde not integer\n")
-    result <- knapsack(w = S_plus - S_minus, p = S - S_minus, cap = round(B_tilde))
+    if (knapsack == 'relative') result <- knapsack(w = S_plus - S_minus, p = (S - S_minus) / (S_plus - S_minus), cap = round(B_tilde))
+    else result <- knapsack(w = S_plus - S_minus, p = S - S_minus, cap = round(B_tilde))
     # TODO: check how knapsack behave for draws (it seems it favors smallest indices)
     S_star <- S_minus
     for (j in result$indices) S_star[j] <- S_plus[j]
@@ -166,7 +167,7 @@ proportional_solution(B, b, Y, V, continuous = TRUE)
 proportional_solution(B, b, Y, V)
 proportional_solution(10, b, Y, V) 
 proportional_solution(2, b, Y, V) 
-proportional_solution(7, b, Y, V)
+proportional_solution(7, b, Y, V) # no difference anywhere with knapsack = "absolute"
 ```
 
 ## Highest approval resolution method
